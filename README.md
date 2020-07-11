@@ -1,1 +1,3 @@
-# Stereo-3D-Reconstruction-
+# Stereo-3D-Reconstruction
+
+3D reconstruction of scence from stereo images 
