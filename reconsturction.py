@@ -4,11 +4,7 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 
 def drawlines(img1,img2,lines,pts1,pts2):
-    ''' img1 - image on which we draw the epilines for the points in img2
-    lines - corresponding epilines '''
     r,c,ch = img1.shape
-#    img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2BGR)
-  #  img2 = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
     for r,pt1,pt2 in zip(lines,pts1,pts2):
         color = tuple(np.random.randint(0,255,3).tolist())
         x0,y0 = map(int, [0, -r[2]/r[1] ])
@@ -17,11 +13,6 @@ def drawlines(img1,img2,lines,pts1,pts2):
         img1 = cv2.circle(img1,tuple(pt1[0]),5,color,-1)
         img2 = cv2.circle(img2,tuple(pt2[0]),5,color,-1)
     return img1,img2
-
-def nothing(x):
-    pass
-
-
 
 # Defining the Parameter for stereoSGBM
 min_disparity =  -1
@@ -121,49 +112,46 @@ left_matcher = cv2.StereoSGBM_create(minDisparity=min_disparity,numDisparities=n
                                ,P1= 8*3*SADWindowSize**2,P2=32*3*SADWindowSize**2,uniquenessRatio=uniqueness,disp12MaxDiff=2,
                                 speckleWindowSize=speckle_windows_size,speckleRange=speckle_range)
 
-disparity = left_matcher.compute(rectified_imgL,rectified_imgR)
+left_disparity = left_matcher.compute(rectified_imgL,rectified_imgR)
 
-cv2.imshow("disparity_left",disparity)
-cv2.imwrite("left_disparity.png",disparity)
+cv2.imshow("disparity_left",left_disparity)
+cv2.imwrite("left_disparity.png",left_disparity)
 ##################
 right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
 right_disparity = right_matcher.compute(rectified_imgR,rectified_imgL)
-cv2.imshow('rigth_disparity',right_disparity)
+#cv2.imshow('rigth_disparity',right_disparity)
+
+# wls filtering
 sigma = 1.5
 lambda_ = 8000
 wls = cv2.ximgproc.createDisparityWLSFilter(left_matcher)
 wls.setLambda(lambda_)
 wls.setSigmaColor(sigma)
-filtered_disparity = wls.filter(disparity,rectified_imgL,disparity_map_right = right_disparity)
+filtered_disparity = wls.filter(left_disparity,rectified_imgL,disparity_map_right = right_disparity)
 cv2.filterSpeckles(filtered_disparity,0,400,max_disparity-5)
-_,disparity = cv2.threshold(filtered_disparity,0,max_disparity*16,cv2.THRESH_TOZERO)
+_,filtered_disparity = cv2.threshold(filtered_disparity,0,max_disparity*16,cv2.THRESH_TOZERO)
 filtered_disparity = (filtered_disparity/16).astype(np.uint8)
-print(disparity.min())
+
 cv2.imshow('filter',filtered_disparity)
 cv2.imwrite("wls_disparity.png",filtered_disparity)
 
-mask = disparity > disparity.min()
-
+# Reprojection matrix
 Q = np.float32([[1,0,0,-KL[0,2]],
                 [0,1,0,-KL[1,2]],
                 [0,0,0,KL[0,0]],
                 [0,0,-1/b,(KL[0,2]-KR[0,2])/b]])
-points = cv2.reprojectImageTo3D(filtered_disparity,Q)
-print(points.shape)
-points = points.reshape(-1,3)
 
+
+points = cv2.reprojectImageTo3D(filtered_disparity,Q)
+points = points.reshape(-1,3)
 color = rectified_imgL.reshape(-1,3)
-color = color/255
-color = np.flip(color,axis = 1)
-print(color.shape)
+color = np.flip(color,axis = 1)/255
 xyzrbg = np.concatenate((points,color),axis=1)
-print(xyzrbg.shape)
+
 pcd = o3d.geometry.PointCloud()
 pcd.points = o3d.utility.Vector3dVector(xyzrbg[:,:3])
 pcd.colors = o3d.utility.Vector3dVector(xyzrbg[:,3:])
-#pcd.paint_uniform_color([1,0.5,0])
 o3d.io.write_point_cloud('data.ply',pcd)
-
 o3d.visualization.draw_geometries([pcd])
 cv2.waitKey(0)
 cv2.destroyAllWindows()
