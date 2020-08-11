@@ -88,8 +88,7 @@ E, mask = cv2.findEssentialMat(pts1, pts2, KL, method=cv2.FM_RANSAC, prob=0.99,
 pts1 = pts1[mask.ravel() == 1]
 pts2 = pts2[mask.ravel() == 1]
 
-print("Using own function")
-R,t = decompose_essential_matrix(E,KL,pts1,pts2)
+#R,t = decompose_essential_matrix(E,KL,pts1,pts2)
 print("R = {} \n  t = {}".format(R,t))
 points,R,t,mask = cv2.recoverPose(E,pts1,pts2,R = None,t = None,mask = None)
 K_inv = np.linalg.inv(KL)
@@ -97,12 +96,9 @@ F = K_inv.T @ E @ K_inv
 print("R = {} \n t = {}".format(R,t))
 lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2,F)
 lines1 = lines1.reshape(-1,3)
-
-# Find epilines corresponding to points in left image (first image) and
-# drawing its lines on right image
 lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1,F)
 lines2 = lines2.reshape(-1,3)
-###################
+
 R1,R2,P1,P2= cv2.stereoRectify(KL,None,KL,None,(image_size[1],image_size[0]),R,t,flags = cv2.CALIB_ZERO_DISPARITY)[:4]
 #print(R1 @ R2.T) # these gives the rotation between the two camera
 mapx1,mapy1 = cv2.initUndistortRectifyMap(KL,None,R1,P1,(image_size[1],image_size[0]),cv2.CV_16SC2)
@@ -112,11 +108,8 @@ print("shape = ",mapx1.shape,mapy1.shape)
 rectified_imgL = cv2.remap(imgL,mapx1,mapy1,interpolation=cv2.INTER_CUBIC,borderMode=cv2.BORDER_CONSTANT)
 rectified_imgR = cv2.remap(imgR,mapx2,mapy2,interpolation=cv2.INTER_CUBIC,borderMode=cv2.BORDER_CONSTANT)
 
-
-###################
 lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2,F)
 lines1 = lines1.reshape(-1,3)
-
 lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1,F)
 lines2 = lines2.reshape(-1,3)
 
@@ -128,11 +121,8 @@ left_matcher = cv2.StereoSGBM_create(minDisparity=min_disparity,numDisparities=n
                                 speckleWindowSize=speckle_windows_size,speckleRange=speckle_range)
 
 left_disparity = left_matcher.compute(rectified_imgL,rectified_imgR)
-
-##################
 right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
 right_disparity = right_matcher.compute(rectified_imgR,rectified_imgL)
-#cv2.imshow('rigth_disparity',right_disparity)
 
 # wls filtering
 sigma = 1.5
@@ -151,6 +141,7 @@ cv2.imwrite("wls_disparity.png",filtered_disparity)
 depth_map = KL[0,0]*b / (filtered_disparity)
 depth_map = depth_map.astype('uint16')
 cv2.imshow('depth map',depth_map)
+
 # Reprojection matrix
 Q = np.float32([[1,0,0,-KL[0,2]],
                 [0,1,0,-KL[1,2]],
