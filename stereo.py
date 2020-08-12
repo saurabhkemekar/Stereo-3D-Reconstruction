@@ -89,7 +89,6 @@ pts1 = pts1[mask.ravel() == 1]
 pts2 = pts2[mask.ravel() == 1]
 
 #R,t = decompose_essential_matrix(E,KL,pts1,pts2)
-print("R = {} \n  t = {}".format(R,t))
 points,R,t,mask = cv2.recoverPose(E,pts1,pts2,R = None,t = None,mask = None)
 K_inv = np.linalg.inv(KL)
 F = K_inv.T @ E @ K_inv
